@@ -1,0 +1,1 @@
+export { TarefasScreen } from './TarefasScreen';

@@ -1,0 +1,1 @@
+export { AlterarSenhaScreen } from './AlterarSenhaScreen';

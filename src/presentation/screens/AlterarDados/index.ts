@@ -1,0 +1,1 @@
+export { AlterarDadosScreen } from './AlterarDadosScreen';

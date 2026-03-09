@@ -1,0 +1,1 @@
+export { CadastroScreen } from './CadastroScreen';
