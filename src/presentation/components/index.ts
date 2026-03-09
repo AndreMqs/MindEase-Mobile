@@ -10,3 +10,5 @@ export { TaskSection } from './TaskSection';
 export { TaskActionsSheet } from './TaskActionsSheet';
 export { TaskDetailsModal } from './TaskDetailsModal';
 export { EmptyTasksState } from './EmptyTasksState';
+
+export * from './LoadingOverlay';

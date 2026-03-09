@@ -27,17 +27,23 @@ import { CreateTaskUseCase } from '../../domain/use-cases/tasks/CreateTaskUseCas
 import { UpdateTaskUseCase } from '../../domain/use-cases/tasks/UpdateTaskUseCase';
 import { MoveTaskUseCase } from '../../domain/use-cases/tasks/MoveTaskUseCase';
 import { RemoveTaskUseCase } from '../../domain/use-cases/tasks/RemoveTaskUseCase';
+import { GamificationRepository } from '../../data/repositories/GamificationRepository';
+import { StubGamificationRepository } from '../../data/repositories/StubGamificationRepository';
+import { GetGamificationStateUseCase } from '../../domain/use-cases/gamification/GetGamificationStateUseCase';
+import { SaveGamificationStateUseCase } from '../../domain/use-cases/gamification/SaveGamificationStateUseCase';
 import type { IAuthRepository } from '../../domain/contracts/repositories/IAuthRepository';
 import type { IDatabaseRepository } from '../../domain/contracts/repositories/IDatabaseRepository';
 import type { IPreferencesRepository } from '../../domain/contracts/repositories/IPreferencesRepository';
 import type { ITasksRepository } from '../../domain/contracts/repositories/ITasksRepository';
 import type { IStorageRepository } from '../../domain/contracts/repositories/IStorageRepository';
+import type { IGamificationRepository } from '../../domain/contracts/repositories/IGamificationRepository';
 
 let authRepository: IAuthRepository | null = null;
 let databaseRepository: IDatabaseRepository | null = null;
 let preferencesRepository: IPreferencesRepository | null = null;
 let tasksRepository: ITasksRepository | null = null;
 let storageRepository: IStorageRepository | null = null;
+let gamificationRepository: IGamificationRepository | null = null;
 let loginUseCase: LoginUseCase | null = null;
 let signUpUseCase: SignUpUseCase | null = null;
 let sendPasswordResetUseCase: SendPasswordResetUseCase | null = null;
@@ -48,6 +54,8 @@ let createTaskUseCase: CreateTaskUseCase | null = null;
 let updateTaskUseCase: UpdateTaskUseCase | null = null;
 let moveTaskUseCase: MoveTaskUseCase | null = null;
 let removeTaskUseCase: RemoveTaskUseCase | null = null;
+let getGamificationStateUseCase: GetGamificationStateUseCase | null = null;
+let saveGamificationStateUseCase: SaveGamificationStateUseCase | null = null;
 
 function buildContainer(): boolean {
   if (!isFirebaseConfigured) {
@@ -70,6 +78,9 @@ function buildContainer(): boolean {
     removeTaskUseCase = new RemoveTaskUseCase(tasksRepository);
     databaseRepository = null;
     storageRepository = null;
+    gamificationRepository = new StubGamificationRepository();
+    getGamificationStateUseCase = new GetGamificationStateUseCase(gamificationRepository);
+    saveGamificationStateUseCase = new SaveGamificationStateUseCase(gamificationRepository);
     return false;
   }
 
@@ -89,11 +100,14 @@ function buildContainer(): boolean {
   getUserPreferencesUseCase = new GetUserPreferencesUseCase(preferencesRepository);
   setUserPreferencesUseCase = new SetUserPreferencesUseCase(preferencesRepository);
   tasksRepository = new TasksRepository(databaseRepository);
+  gamificationRepository = new GamificationRepository(databaseRepository);
   listTasksUseCase = new ListTasksUseCase(tasksRepository);
   createTaskUseCase = new CreateTaskUseCase(tasksRepository);
   updateTaskUseCase = new UpdateTaskUseCase(tasksRepository);
   moveTaskUseCase = new MoveTaskUseCase(tasksRepository);
   removeTaskUseCase = new RemoveTaskUseCase(tasksRepository);
+  getGamificationStateUseCase = new GetGamificationStateUseCase(gamificationRepository);
+  saveGamificationStateUseCase = new SaveGamificationStateUseCase(gamificationRepository);
   return true;
 }
 
@@ -181,4 +195,14 @@ export function getMoveTaskUseCase(): MoveTaskUseCase {
 export function getRemoveTaskUseCase(): RemoveTaskUseCase {
   ensureContainer();
   return removeTaskUseCase!;
+}
+
+export function getGetGamificationStateUseCase(): GetGamificationStateUseCase {
+  ensureContainer();
+  return getGamificationStateUseCase!;
+}
+
+export function getSaveGamificationStateUseCase(): SaveGamificationStateUseCase {
+  ensureContainer();
+  return saveGamificationStateUseCase!;
 }

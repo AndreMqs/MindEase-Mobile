@@ -6,7 +6,9 @@ import type { TarefasStackScreenProps } from '../../../app/navigation/types';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { Checkbox } from '../../components/Checkbox';
+import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { useThemeOptional, useServices } from '../../../app/providers';
+import type { GamificationState } from '../../../domain/entities/Gamification';
 import type { Task, TaskStatus } from '../../../domain/entities/Task';
 import type { TaskAction } from '../../components/TaskActionsSheet';
 import type { Theme } from '../../../shared/theme';
@@ -57,6 +59,33 @@ function formatFocusTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+
+function buildGamificationState(tasks: Task[], current: GamificationState): GamificationState {
+  const completedTasks = tasks.filter((task) => task.status === 'done');
+  const completedTaskIds = completedTasks.map((task) => task.id);
+  const pointsTotalEarned = completedTasks.reduce((sum, task) => sum + (task.points ?? 0), 0);
+  return {
+    ...current,
+    completedTaskIds,
+    pointsTotalEarned,
+    pointsBalance: pointsTotalEarned - current.pointsSpent,
+  };
+}
+
+async function recalculateGamification(
+  userId: string,
+  listTasksUseCase: { execute: (userId: string) => Promise<Task[]> },
+  getGamificationStateUseCase: { execute: (userId: string) => Promise<GamificationState> },
+  saveGamificationStateUseCase: { execute: (userId: string, state: GamificationState) => Promise<void> }
+): Promise<void> {
+  const latestTasks = await listTasksUseCase.execute(userId);
+  const currentGamification = await getGamificationStateUseCase.execute(userId);
+  await saveGamificationStateUseCase.execute(
+    userId,
+    buildGamificationState(latestTasks, currentGamification)
+  );
+}
+
 function getFocusElapsed(task: Task): number {
   if (task.focusTimerStartedAt == null) return 0;
   if (task.focusTimerPausedAt != null) {
@@ -70,14 +99,19 @@ export function TaskDetailScreen() {
   const styles = useMemo(() => createStyles(theme), [theme]);
   const route = useRoute<RouteProp<import('../../../app/navigation/types').TarefasStackParamList, 'TaskDetail'>>();
   const navigation = useNavigation<TarefasStackScreenProps<'TaskDetail'>['navigation']>();
-  const { authRepository, updateTaskUseCase, moveTaskUseCase, removeTaskUseCase } = useServices();
+  const { authRepository, updateTaskUseCase, moveTaskUseCase, removeTaskUseCase, listTasksUseCase, getGamificationStateUseCase, saveGamificationStateUseCase } = useServices();
 
   const [task, setTask] = useState<Task>(route.params.task);
   const [timerTick, setTimerTick] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [savingMessage, setSavingMessage] = useState('Atualizando tarefa…');
   const userId = authRepository.getCurrentUser()?.id ?? null;
 
   const focusRunning = task.focusTimerStartedAt != null && task.focusTimerPausedAt == null;
-  const focusElapsed = getFocusElapsedSafe(task);
+  const focusElapsed = useMemo(() => {
+    void timerTick;
+    return getFocusElapsedSafe(task);
+  }, [task.focusTimerStartedAt, task.focusTimerPausedAt, timerTick]);
 
   useEffect(() => {
     setTask(route.params.task);
@@ -98,9 +132,13 @@ export function TaskDetailScreen() {
       const updated = { ...task, checklist: nextChecklist, updatedAtISO: new Date().toISOString() };
       setTask(updated);
       try {
+        setSavingMessage('Atualizando checklist…');
+        setSaving(true);
         await updateTaskUseCase.execute(userId, updated);
       } catch (e) {
         Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao atualizar');
+      } finally {
+        setSaving(false);
       }
     },
     [userId, task, updateTaskUseCase]
@@ -124,8 +162,17 @@ export function TaskDetailScreen() {
                 text: 'Excluir',
                 style: 'destructive',
                 onPress: async () => {
-                  await removeTaskUseCase.execute(userId, task.id);
-                  navigation.goBack();
+                  setSavingMessage('Excluindo tarefa…');
+                  setSaving(true);
+                  try {
+                    await removeTaskUseCase.execute(userId, task.id);
+                    await recalculateGamification(userId, listTasksUseCase, getGamificationStateUseCase, saveGamificationStateUseCase);
+                    navigation.goBack();
+                  } catch (e) {
+                    Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao executar');
+                  } finally {
+                    setSaving(false);
+                  }
                 },
               },
             ]
@@ -133,8 +180,13 @@ export function TaskDetailScreen() {
           return;
         }
         if (action === 'start' || action === 'moveDoing') {
+          setSavingMessage('Movendo para Fazendo…');
+          setSaving(true);
           await moveTaskUseCase.execute(userId, task.id, 'doing');
+          await recalculateGamification(userId, listTasksUseCase, getGamificationStateUseCase, saveGamificationStateUseCase);
         } else if (action === 'moveDone') {
+          setSavingMessage('Movendo para Feito…');
+          setSaving(true);
           const now = Date.now();
           const finalizeFocus =
             task.focusTimerStartedAt != null && task.focusTimerPausedAt == null
@@ -147,9 +199,15 @@ export function TaskDetailScreen() {
             updatedAtISO: new Date().toISOString(),
             ...finalizeFocus,
           });
+          await recalculateGamification(userId, listTasksUseCase, getGamificationStateUseCase, saveGamificationStateUseCase);
         } else if (action === 'reopen') {
+          setSavingMessage('Reabrindo tarefa…');
+          setSaving(true);
           await moveTaskUseCase.execute(userId, task.id, 'doing');
+          await recalculateGamification(userId, listTasksUseCase, getGamificationStateUseCase, saveGamificationStateUseCase);
         } else if (action === 'startFocus') {
+          setSavingMessage(task.focusTimerStartedAt != null ? 'Retomando foco…' : 'Iniciando foco…');
+          setSaving(true);
           const isResume = task.focusTimerPausedAt != null && task.focusTimerStartedAt != null;
           const elapsedMs = isResume && task.focusTimerPausedAt != null && task.focusTimerStartedAt != null
             ? task.focusTimerPausedAt - task.focusTimerStartedAt
@@ -170,6 +228,8 @@ export function TaskDetailScreen() {
           }));
           return;
         } else if (action === 'stopFocus') {
+          setSavingMessage('Pausando foco…');
+          setSaving(true);
           const now = Date.now();
           await updateTaskUseCase.execute(userId, {
             ...task,
@@ -182,9 +242,11 @@ export function TaskDetailScreen() {
         navigation.goBack();
       } catch (e) {
         Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao executar');
+      } finally {
+        setSaving(false);
       }
     },
-    [userId, task, moveTaskUseCase, updateTaskUseCase, removeTaskUseCase, navigation]
+    [userId, task, moveTaskUseCase, updateTaskUseCase, removeTaskUseCase, navigation, listTasksUseCase, getGamificationStateUseCase, saveGamificationStateUseCase]
   );
 
   const baseActions = getActionsForStatus(task.status);
@@ -194,6 +256,7 @@ export function TaskDetailScreen() {
 
   return (
     <ScreenContainer>
+      <LoadingOverlay visible={saving} message={savingMessage} />
       <ScreenHeader title="Detalhes" onBack={() => navigation.goBack()} />
       <ScrollView
         style={styles.scroll}

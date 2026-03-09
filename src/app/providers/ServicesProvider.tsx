@@ -12,6 +12,8 @@ import {
   getUpdateTaskUseCase,
   getMoveTaskUseCase,
   getRemoveTaskUseCase,
+  getGetGamificationStateUseCase,
+  getSaveGamificationStateUseCase,
 } from '../container';
 import type { IAuthRepository } from '../../domain/contracts/repositories/IAuthRepository';
 import type { LoginUseCase } from '../../domain/use-cases/auth/LoginUseCase';
@@ -24,6 +26,8 @@ import type { CreateTaskUseCase } from '../../domain/use-cases/tasks/CreateTaskU
 import type { UpdateTaskUseCase } from '../../domain/use-cases/tasks/UpdateTaskUseCase';
 import type { MoveTaskUseCase } from '../../domain/use-cases/tasks/MoveTaskUseCase';
 import type { RemoveTaskUseCase } from '../../domain/use-cases/tasks/RemoveTaskUseCase';
+import type { GetGamificationStateUseCase } from '../../domain/use-cases/gamification/GetGamificationStateUseCase';
+import type { SaveGamificationStateUseCase } from '../../domain/use-cases/gamification/SaveGamificationStateUseCase';
 
 type ServicesContextValue = {
   authRepository: IAuthRepository;
@@ -37,6 +41,8 @@ type ServicesContextValue = {
   updateTaskUseCase: UpdateTaskUseCase;
   moveTaskUseCase: MoveTaskUseCase;
   removeTaskUseCase: RemoveTaskUseCase;
+  getGamificationStateUseCase: GetGamificationStateUseCase;
+  saveGamificationStateUseCase: SaveGamificationStateUseCase;
 };
 
 const ServicesContext = createContext<ServicesContextValue | null>(null);
@@ -60,6 +66,8 @@ export function ServicesProvider({ children }: { children: ReactNode }) {
       updateTaskUseCase: getUpdateTaskUseCase(),
       moveTaskUseCase: getMoveTaskUseCase(),
       removeTaskUseCase: getRemoveTaskUseCase(),
+      getGamificationStateUseCase: getGetGamificationStateUseCase(),
+      saveGamificationStateUseCase: getSaveGamificationStateUseCase(),
     };
   }, []);
 

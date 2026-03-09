@@ -14,6 +14,7 @@ export type RootStackParamList = {
 export type MainTabsParamList = {
   Painel: undefined;
   Tarefas: undefined;
+  Loja: undefined;
   Perfil: undefined;
 };
 

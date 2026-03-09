@@ -8,12 +8,13 @@ import type { Theme } from '../../../shared/theme';
 type TaskSectionProps = {
   title?: string;
   tasks: Task[];
+  refreshTick?: number;
   onTaskPress: (task: Task) => void;
   onQuickAction?: (task: Task, action: 'moveDone' | 'startFocus' | 'stopFocus') => void;
   onChecklistChange?: (task: Task, itemId: string, done: boolean) => void;
 };
 
-export function TaskSection({ title, tasks, onTaskPress, onQuickAction, onChecklistChange }: TaskSectionProps) {
+export function TaskSection({ title, tasks, refreshTick = 0, onTaskPress, onQuickAction, onChecklistChange }: TaskSectionProps) {
   const theme = useThemeOptional();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -27,6 +28,7 @@ export function TaskSection({ title, tasks, onTaskPress, onQuickAction, onCheckl
           <TaskCard
             key={task.id}
             task={task}
+            refreshTick={refreshTick}
             onPress={onTaskPress}
             onQuickAction={onQuickAction}
             onChecklistChange={onChecklistChange}

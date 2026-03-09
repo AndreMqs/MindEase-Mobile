@@ -7,6 +7,7 @@ import type { MainTabsParamList } from './types';
 import { PainelScreen } from '../../presentation/screens/Painel';
 import { TarefasStackNavigator } from './TarefasStackNavigator';
 import { PerfilStackNavigator } from './PerfilStackNavigator';
+import { LojaScreen } from '../../presentation/screens/Loja';
 import { useThemeOptional } from '../providers';
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
@@ -58,6 +59,16 @@ export function MainTabsNavigator() {
           ),
           tabBarStyle: getTarefasTabBarStyle(route, defaultTabBarStyle),
         })}
+      />
+      <Tab.Screen
+        name="Loja"
+        component={LojaScreen}
+        options={{
+          tabBarLabel: 'Loja',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="gift-outline" size={size} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
         name="Perfil"

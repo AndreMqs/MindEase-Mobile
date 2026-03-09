@@ -1,0 +1,1 @@
+export { LojaScreen } from './LojaScreen';

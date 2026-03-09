@@ -11,11 +11,13 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { TarefasStackScreenProps } from '../../../app/navigation/types';
 import { ScreenContainer } from '../../components/ScreenContainer';
+import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { TaskSection } from '../../components/TaskSection';
 import { EmptyTasksState } from '../../components/EmptyTasksState';
 import { useThemeOptional, useServices } from '../../../app/providers';
 import type { Task, TaskStatus } from '../../../domain/entities/Task';
 import type { Theme } from '../../../shared/theme';
+import type { GamificationState } from '../../../domain/entities/Gamification';
 
 function sortByOrder(tasks: Task[]): Task[] {
   return [...tasks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -27,6 +29,34 @@ const TABS: { key: TaskStatus; label: string }[] = [
   { key: 'done', label: 'Feito' },
 ];
 
+
+
+async function recalculateGamification(
+  userId: string,
+  listTasksUseCase: { execute: (userId: string) => Promise<Task[]> },
+  getGamificationStateUseCase: { execute: (userId: string) => Promise<GamificationState> },
+  saveGamificationStateUseCase: { execute: (userId: string, state: GamificationState) => Promise<void> }
+): Promise<void> {
+  const latestTasks = await listTasksUseCase.execute(userId);
+  const currentGamification = await getGamificationStateUseCase.execute(userId);
+  await saveGamificationStateUseCase.execute(
+    userId,
+    buildGamificationState(latestTasks, currentGamification)
+  );
+}
+
+function buildGamificationState(tasks: Task[], current: GamificationState): GamificationState {
+  const completedTasks = tasks.filter((task) => task.status === 'done');
+  const completedTaskIds = completedTasks.map((task) => task.id);
+  const pointsTotalEarned = completedTasks.reduce((sum, task) => sum + (task.points ?? 0), 0);
+  return {
+    ...current,
+    completedTaskIds,
+    pointsTotalEarned,
+    pointsBalance: pointsTotalEarned - current.pointsSpent,
+  };
+}
+
 export function TarefasScreen() {
   const theme = useThemeOptional();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -35,6 +65,8 @@ export function TarefasScreen() {
     listTasksUseCase,
     updateTaskUseCase,
     moveTaskUseCase,
+    getGamificationStateUseCase,
+    saveGamificationStateUseCase,
   } = useServices();
 
   const userId = authRepository.getCurrentUser()?.id ?? null;
@@ -44,6 +76,8 @@ export function TarefasScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<TaskStatus>('todo');
   const [timerTick, setTimerTick] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [savingMessage, setSavingMessage] = useState('Atualizando tarefa…');
 
   const hasAnyFocusRunning = useMemo(
     () => tasks.some((t) => t.focusTimerStartedAt != null && t.focusTimerPausedAt == null),
@@ -68,12 +102,17 @@ export function TarefasScreen() {
     try {
       const list = await listTasksUseCase.execute(userId);
       setTasks(list);
+      const currentGamification = await getGamificationStateUseCase.execute(userId);
+      const nextGamification = buildGamificationState(list, currentGamification);
+      if (JSON.stringify(nextGamification) !== JSON.stringify(currentGamification)) {
+        await saveGamificationStateUseCase.execute(userId, nextGamification);
+      }
     } catch (e) {
       if (!silent) setError(e instanceof Error ? e.message : 'Erro ao carregar tarefas');
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [userId, listTasksUseCase]);
+  }, [userId, listTasksUseCase, getGamificationStateUseCase, saveGamificationStateUseCase]);
 
   useFocusEffect(
     useCallback(() => {
@@ -100,6 +139,8 @@ export function TarefasScreen() {
       if (!userId) return;
       try {
         if (action === 'moveDone') {
+          setSavingMessage('Movendo para Feito…');
+          setSaving(true);
           const now = new Date().toISOString();
           const finalizeFocus =
             task.focusTimerStartedAt != null && task.focusTimerPausedAt == null
@@ -112,18 +153,26 @@ export function TarefasScreen() {
             updatedAtISO: now,
             ...finalizeFocus,
           };
-          setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+          const nextTasks = tasks.map((t) => (t.id === task.id ? updated : t));
+          setTasks(nextTasks);
           await updateTaskUseCase.execute(userId, updated);
+          await recalculateGamification(userId, listTasksUseCase, getGamificationStateUseCase, saveGamificationStateUseCase);
         } else if (action === 'stopFocus') {
+          setSavingMessage('Pausando foco…');
+          setSaving(true);
           const now = Date.now();
           const updated = {
             ...task,
             focusTimerPausedAt: now,
             updatedAtISO: new Date().toISOString(),
           };
-          setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+          const nextTasks = tasks.map((t) => (t.id === task.id ? updated : t));
+          setTasks(nextTasks);
           await updateTaskUseCase.execute(userId, updated);
+          await recalculateGamification(userId, listTasksUseCase, getGamificationStateUseCase, saveGamificationStateUseCase);
         } else {
+          setSavingMessage(task.focusTimerStartedAt != null ? 'Retomando foco…' : 'Iniciando foco…');
+          setSaving(true);
           const isResume = task.focusTimerPausedAt != null && task.focusTimerStartedAt != null;
           const elapsedMs = isResume
             ? task.focusTimerPausedAt! - task.focusTimerStartedAt!
@@ -164,9 +213,11 @@ export function TarefasScreen() {
       } catch (e) {
         void loadTasks(true);
         Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao executar');
+      } finally {
+        setSaving(false);
       }
     },
-    [userId, moveTaskUseCase, updateTaskUseCase, tasks, loadTasks]
+    [userId, moveTaskUseCase, updateTaskUseCase, tasks, loadTasks, getGamificationStateUseCase, saveGamificationStateUseCase, listTasksUseCase]
   );
 
   const handleChecklistChange = useCallback(
@@ -181,6 +232,8 @@ export function TarefasScreen() {
         updatedAtISO: new Date().toISOString(),
       };
       try {
+        setSavingMessage('Atualizando checklist…');
+        setSaving(true);
         setTasks((prev) =>
           prev.map((t) => (t.id === task.id ? updatedTask : t))
         );
@@ -190,6 +243,8 @@ export function TarefasScreen() {
           prev.map((t) => (t.id === task.id ? task : t))
         );
         Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao atualizar');
+      } finally {
+        setSaving(false);
       }
     },
     [userId, updateTaskUseCase]
@@ -202,6 +257,7 @@ export function TarefasScreen() {
   if (!userId) {
     return (
       <ScreenContainer>
+        <LoadingOverlay visible={saving} message={savingMessage} />
         <View style={styles.centered}>
           <Text style={styles.errorText}>Faça login para ver suas tarefas.</Text>
         </View>
@@ -212,6 +268,7 @@ export function TarefasScreen() {
   if (loading) {
     return (
       <ScreenContainer>
+        <LoadingOverlay visible={saving} message={savingMessage} />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Carregando tarefas…</Text>
@@ -224,6 +281,7 @@ export function TarefasScreen() {
 
   return (
     <ScreenContainer>
+      <LoadingOverlay visible={saving} message={savingMessage} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -281,6 +339,7 @@ export function TarefasScreen() {
             onTaskPress={handleTaskPress}
             onQuickAction={handleQuickAction}
             onChecklistChange={handleChecklistChange}
+            refreshTick={timerTick}
           />
         )}
       </ScrollView>

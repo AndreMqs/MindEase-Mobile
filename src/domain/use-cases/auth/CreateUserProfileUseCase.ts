@@ -1,5 +1,6 @@
 import type { IDatabaseRepository } from '../../contracts/repositories/IDatabaseRepository';
 import type { UserProfileData, UserDocument } from '../../entities/UserProfile';
+import { defaultGamificationState } from '../../entities/Gamification';
 import type { ICreateUserProfileUseCase } from './ICreateUserProfileUseCase';
 
 const USERS_COLLECTION = 'users';
@@ -22,6 +23,7 @@ export class CreateUserProfileUseCase implements ICreateUserProfileUseCase {
       preferences: {},
       settings: {},
       metadata: {},
+      gamification: defaultGamificationState,
     };
     await this.databaseRepository.set(USERS_COLLECTION, userId, document);
   }

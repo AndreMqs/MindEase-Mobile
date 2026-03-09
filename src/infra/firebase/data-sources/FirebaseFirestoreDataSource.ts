@@ -15,6 +15,26 @@ import {
 import { db } from '../../../lib/firebase';
 import type { IDatabaseDataSource } from '../../../data/data-sources/database/IDatabaseDataSource';
 
+
+function sanitizeFirestoreValue<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeFirestoreValue(item)) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    const sanitized = Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, item]) => item !== undefined)
+        .map(([key, item]) => [key, sanitizeFirestoreValue(item)])
+    );
+    return sanitized as T;
+  }
+
+  return value;
+}
+
 /**
  * Implementação do data source de banco usando Firestore (Web SDK).
  * Uma única config em src/lib/firebase.ts para iOS, Android e Web.
@@ -29,7 +49,7 @@ export class FirebaseFirestoreDataSource implements IDatabaseDataSource {
 
   async set<T>(collectionName: string, id: string, data: T): Promise<void> {
     const ref = doc(db, collectionName, id);
-    await setDoc(ref, data as DocumentData);
+    await setDoc(ref, sanitizeFirestoreValue(data) as DocumentData);
   }
 
   async update<T extends Record<string, unknown>>(
@@ -38,7 +58,7 @@ export class FirebaseFirestoreDataSource implements IDatabaseDataSource {
     data: Partial<T>
   ): Promise<void> {
     const ref = doc(db, collectionName, id);
-    await updateDoc(ref, data as DocumentData);
+    await updateDoc(ref, sanitizeFirestoreValue(data) as DocumentData);
   }
 
   async delete(collectionName: string, id: string): Promise<void> {

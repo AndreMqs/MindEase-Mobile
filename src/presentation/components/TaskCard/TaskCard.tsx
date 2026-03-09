@@ -7,6 +7,7 @@ import type { Theme } from '../../../shared/theme';
 
 type TaskCardProps = {
   task: Task;
+  refreshTick?: number;
   onPress: (task: Task) => void;
   onQuickAction?: (task: Task, action: 'moveDone' | 'startFocus' | 'stopFocus') => void;
   onChecklistChange?: (task: Task, itemId: string, done: boolean) => void;
@@ -30,11 +31,14 @@ function isFocusRunning(task: Task): boolean {
   return task.focusTimerStartedAt != null && task.focusTimerPausedAt == null;
 }
 
-export function TaskCard({ task, onPress, onQuickAction, onChecklistChange }: TaskCardProps) {
+export function TaskCard({ task, refreshTick = 0, onPress, onQuickAction, onChecklistChange }: TaskCardProps) {
   const theme = useThemeOptional();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
-  const focusElapsed = getFocusElapsed(task);
+  const focusElapsed = useMemo(() => {
+    void refreshTick;
+    return getFocusElapsed(task);
+  }, [task.focusTimerStartedAt, task.focusTimerPausedAt, refreshTick]);
   const focusRunning = isFocusRunning(task);
   const hasFocusElapsed = focusElapsed > 0;
   const showRetomar = hasFocusElapsed && !focusRunning;
