@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
-import { useThemeOptional } from '../../../app/providers';
+import { useThemeOptional, usePreferences } from '../../../app/providers';
 import { Checkbox } from '../Checkbox';
 import type { Task } from '../../../domain/entities/Task';
 import type { Theme } from '../../../shared/theme';
@@ -33,7 +33,9 @@ function isFocusRunning(task: Task): boolean {
 
 export function TaskCard({ task, refreshTick = 0, onPress, onQuickAction, onChecklistChange }: TaskCardProps) {
   const theme = useThemeOptional();
+  const { preferences } = usePreferences();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const hidePoints = preferences.focusMode;
 
   const focusElapsed = useMemo(() => {
     void refreshTick;
@@ -62,9 +64,9 @@ export function TaskCard({ task, refreshTick = 0, onPress, onQuickAction, onChec
             {task.description}
           </Text>
         ) : null}
-        {(task.points ?? 0) > 0 && (
+        {!hidePoints && (task.points ?? 0) > 0 ? (
           <Text style={styles.points}>{task.points} pts</Text>
-        )}
+        ) : null}
         {focusElapsed > 0 && (
           <Text style={styles.focusTime}>⏱ {formatFocusTime(focusElapsed)}</Text>
         )}

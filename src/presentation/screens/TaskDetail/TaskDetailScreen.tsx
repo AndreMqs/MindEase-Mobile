@@ -7,7 +7,7 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { Checkbox } from '../../components/Checkbox';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
-import { useThemeOptional, useServices } from '../../../app/providers';
+import { useThemeOptional, useServices, usePreferences } from '../../../app/providers';
 import type { GamificationState } from '../../../domain/entities/Gamification';
 import type { Task, TaskStatus } from '../../../domain/entities/Task';
 import type { TaskAction } from '../../components/TaskActionsSheet';
@@ -96,7 +96,9 @@ function getFocusElapsed(task: Task): number {
 
 export function TaskDetailScreen() {
   const theme = useThemeOptional();
+  const { preferences } = usePreferences();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const hidePoints = preferences.focusMode;
   const route = useRoute<RouteProp<import('../../../app/navigation/types').TarefasStackParamList, 'TaskDetail'>>();
   const navigation = useNavigation<TarefasStackScreenProps<'TaskDetail'>['navigation']>();
   const { authRepository, updateTaskUseCase, moveTaskUseCase, removeTaskUseCase, listTasksUseCase, getGamificationStateUseCase, saveGamificationStateUseCase } = useServices();
@@ -271,12 +273,14 @@ export function TaskDetailScreen() {
             {task.description}
           </Text>
         ) : null}
-        <View style={styles.metaRow}>
-          <Text style={styles.points}>{task.points ?? 0} pts</Text>
-          {focusElapsed > 0 && (
-            <Text style={styles.focusTime}>⏱ {formatFocusTime(focusElapsed)}</Text>
-          )}
-        </View>
+        {(focusElapsed > 0 || !hidePoints) ? (
+          <View style={styles.metaRow}>
+            {!hidePoints ? <Text style={styles.points}>{task.points ?? 0} pts</Text> : null}
+            {focusElapsed > 0 ? (
+              <Text style={styles.focusTime}>⏱ {formatFocusTime(focusElapsed)}</Text>
+            ) : null}
+          </View>
+        ) : null}
         {task.checklist && task.checklist.length > 0 ? (
           <View style={styles.checklistBlock}>
             <Text style={styles.checklistLabel}>Checklist</Text>

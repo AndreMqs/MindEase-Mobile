@@ -8,7 +8,7 @@ import { PainelScreen } from '../../presentation/screens/Painel';
 import { TarefasStackNavigator } from './TarefasStackNavigator';
 import { PerfilStackNavigator } from './PerfilStackNavigator';
 import { LojaScreen } from '../../presentation/screens/Loja';
-import { useThemeOptional } from '../providers';
+import { useThemeOptional, usePreferences } from '../providers';
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
@@ -25,6 +25,8 @@ function getTarefasTabBarStyle(
 
 export function MainTabsNavigator() {
   const theme = useThemeOptional();
+  const { preferences } = usePreferences();
+  const focusMode = preferences.focusMode;
   const defaultTabBarStyle = {
     backgroundColor: theme.colors.surface,
     borderTopColor: theme.colors.border,
@@ -60,16 +62,18 @@ export function MainTabsNavigator() {
           tabBarStyle: getTarefasTabBarStyle(route, defaultTabBarStyle),
         })}
       />
-      <Tab.Screen
-        name="Loja"
-        component={LojaScreen}
-        options={{
-          tabBarLabel: 'Loja',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="gift-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      {!focusMode && (
+        <Tab.Screen
+          name="Loja"
+          component={LojaScreen}
+          options={{
+            tabBarLabel: 'Loja',
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="gift-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
       <Tab.Screen
         name="Perfil"
         component={PerfilStackNavigator}
