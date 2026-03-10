@@ -69,6 +69,11 @@ npm run lint   # lint do projeto
 - Timer de foco (Pomodoro) e avisos conforme rotina
 - Preferências aplicadas em tempo real (tema, acessibilidade)
 
+### Loja (gamificação)
+- Troca de **pontos** por recompensas; criar prêmios e definir custo em pontos
+- Resgatar prêmios (desconta do saldo); histórico de resgates
+- Pontos ganhos ao concluir tarefas; persistência em Firestore (`users/{userId}.gamification`)
+
 ### Perfil
 - Resumo de preferências; gamificação (pontos, total ganho)
 - Aba Dados e conta: editar nome e e-mail, alterar senha
