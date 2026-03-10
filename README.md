@@ -43,7 +43,6 @@ npm run lint   # lint do projeto
 - **Clean Architecture**: domínio isolado, casos de uso independentes de UI, adaptadores por interfaces.
 - **Camadas**:
   - **`domain/`** — use cases (auth, tarefas, preferências)
-  - **`data/`** — repositórios, data sources (auth, database, storage)
   - **`infra/`** — implementações Firebase (auth, Firestore, Storage)
   - **`presentation/`** — telas, componentes reutilizáveis
   - **`app/`** — navegação (Root, Tabs, Stacks), providers (tema, preferências, serviços), container (DI), config
