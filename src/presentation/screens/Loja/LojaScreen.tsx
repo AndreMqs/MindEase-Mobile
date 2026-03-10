@@ -1,12 +1,13 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { ScreenContainer } from '../../components/ScreenContainer';
-import { Input, Button, LoadingOverlay } from '../../components';
 import { useServices, useThemeOptional } from '../../../app/providers';
-import type { Theme } from '../../../shared/theme';
 import type { GamificationState, RewardItem } from '../../../domain/entities/Gamification';
 import type { Task } from '../../../domain/entities/Task';
+import { db } from '../../../lib/firebase';
+import type { Theme } from '../../../shared/theme';
+import { Button, Input, LoadingOverlay } from '../../components';
+import { ScreenContainer } from '../../components/ScreenContainer';
 
 
 function buildGamificationState(tasks: Task[], current: GamificationState): GamificationState {
@@ -65,11 +66,35 @@ export function LojaScreen() {
     }
   }, [userId, getGamificationStateUseCase, listTasksUseCase, saveGamificationStateUseCase]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
+  useEffect(() => {
+    if (!userId) {
+      setState(null);
+      setLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    const userRef = doc(db, 'users', userId);
+
+    void load();
+
+    const unsubscribe = onSnapshot(
+      userRef,
+      () => {
+        if (!isMounted) return;
+        void load();
+      },
+      (error) => {
+        if (!isMounted) return;
+        Alert.alert('Erro', error.message || 'Falha ao sincronizar loja');
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [userId, load]);
 
   const persist = useCallback(async (next: GamificationState) => {
     if (!userId) return;

@@ -27,6 +27,7 @@ const colors = {
   inputFocusRing: palette.inputFocusRing,
   menuSelected: palette.menuSelected,
   menuSelectedHover: palette.menuSelectedHover,
+  buttonText: palette.textPrimary,
   // Semânticos/tokens RN (não presentes na paleta web)
   error: '#EF4444',
   white: '#FFFFFF',
